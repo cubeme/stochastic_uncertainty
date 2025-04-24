@@ -169,3 +169,11 @@ cython_debug/
 
 # PyPI configuration file
 .pypirc
+
+
+# Project specific
+notebooks/networks
+notebooks/output
+**/.DS_Store
+launch.json
+settings.json
