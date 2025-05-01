@@ -21,14 +21,14 @@ def save_output_l96(output_folder, config, x, y, t, u, extra_ident=""):
     """
     Save Lorenz '96 simulation results to the specified output folder.
 
-    The results are saved in .npy format the following directory structure:
-    `output_folder`/
-        L96/
-            c{c}_dt{dt}_si{si}_time{t_total}/
-                x.npy
-                y.npy
-                t.npy
-                u.npy
+    The results are saved in .npy format in the following directory structure:
+        `output_folder`/
+            L96/
+                c{c}_dt{dt}_si{si}_time{t_total}/
+                    x.npy
+                    y.npy
+                    t.npy
+                    u.npy
 
     Args:
         output_folder (str): Path to the output folder.
@@ -125,6 +125,7 @@ def save_output_gcm(output_folder, config, parameterization, x, t, extra_ident="
             - 'seed' (int): Random seed for reproducibility.
         parameterization (str): Name of the parameterization used in the simulation.
         x (numpy.ndarray): Array of state variables.
+        t (numpy.ndarray): Array of time points.
         extra_ident (str, optional): Additional identifier for the folder. Default is an empty string.
     """
     f_ident = (
@@ -187,7 +188,7 @@ def load_output_gcm(output_folder, config, parameterization, extra_ident=""):
     return x, t
 
 
-def save_output_ensemble(output_folder, config, parameterization, x, t, init_idx, seeds, extra_ident=""):
+def save_output_ensemble(output_folder, config, parameterization, x, t, seeds, extra_ident=""):
     """
     Save ensemble simulation results to the specified output folder.
 
@@ -208,11 +209,10 @@ def save_output_ensemble(output_folder, config, parameterization, x, t, init_idx
             - 't_total' (float): Total simulation time.
             - 'init_states' (int): Number of initial states.
             - 'n_ens' (int): Number of ensemble members.
-            - 'seed' (int): Random seed for reproducibility.
         parameterization (str): Name of the parameterization used in the simulation.
         x (numpy.ndarray): Array of ensemble state variables.
         t (numpy.ndarray): Array of time points.
-        init_idx (numpy.ndarray): Array of initial state indices.
+        seeds (list): List of random seeds used for reproducibility.
         extra_ident (str, optional): Additional identifier for the folder. Default is an empty string.
     """
     seed_str = f"{seeds[0]}-{seeds[-1]}"
@@ -232,7 +232,6 @@ def save_output_ensemble(output_folder, config, parameterization, x, t, init_idx
 
     np.save(os.path.join(output_path, "x.npy"), x)
     np.save(os.path.join(output_path, "t.npy"), t)
-    np.save(os.path.join(output_path, "init_indices.npy"), init_idx)
 
 
 def load_output_ensemble(output_folder, config, parameterization, seeds, extra_ident=""):
@@ -257,8 +256,8 @@ def load_output_ensemble(output_folder, config, parameterization, seeds, extra_i
             - 't_total' (float): Total simulation time.
             - 'init_states' (int): Number of initial states.
             - 'n_ens' (int): Number of ensemble members.
-            - 'seed' (int): Random seed for reproducibility.
         parameterization (str): Name of the parameterization used in the simulation.
+        seeds (list): List of random seeds used for reproducibility.
         extra_ident (str, optional): Additional identifier for the folder. Default is an empty string.
 
     Returns:
@@ -268,6 +267,7 @@ def load_output_ensemble(output_folder, config, parameterization, seeds, extra_i
             - init_idx (numpy.ndarray): Array of initial state indices.
     """
     seed_str = f"{seeds[0]}-{seeds[-1]}"
+    
     f_ident = (
         f"c{config['c']}_"
         f"dt{config['dt']}_"
@@ -282,12 +282,11 @@ def load_output_ensemble(output_folder, config, parameterization, seeds, extra_i
 
     x = np.load(os.path.join(save_folder, "x.npy"))
     t = np.load(os.path.join(save_folder, "t.npy"))
-    init_indices = np.load(os.path.join(save_folder, "init_indices.npy"))
 
-    return x, t, init_indices
+    return x, t
 
 
-def save_output_l96_ensemble_simulation(output_folder, config, x, y, t, u, seeds=None, extra_ident=""):
+def save_output_l96_ensemble_simulation(output_folder, config, x, y, t, u, seeds, extra_ident=""):
     """
     Save ensemble simulation results to the specified output folder.
 
@@ -308,17 +307,14 @@ def save_output_l96_ensemble_simulation(output_folder, config, x, y, t, u, seeds
             - 't_total' (float): Total simulation time.
             - 'init_states' (int): Number of initial states.
             - 'n_ens' (int): Number of ensemble members.
-            - 'seed' (int): Random seed for reproducibility.
-        parameterization (str): Name of the parameterization used in the simulation.
-        x (numpy.ndarray): Array of ensemble state variables.
+        x (numpy.ndarray): Array of slow variables (X).
+        y (numpy.ndarray): Array of fast variables (Y).
         t (numpy.ndarray): Array of time points.
-        init_idx (numpy.ndarray): Array of initial state indices.
+        u (numpy.ndarray): Coupling term history.
+        seeds (list): List of random seeds used for reproducibility.
         extra_ident (str, optional): Additional identifier for the folder. Default is an empty string.
     """
-    if seeds is not None:
-        seed_str = f"{seeds[0]}-{seeds[-1]}"
-    else:
-        seed_str = config['seed']
+    seed_str = f"{seeds[0]}-{seeds[-1]}"
 
     f_ident = (
         f"c{config['c']}_"
@@ -339,18 +335,20 @@ def save_output_l96_ensemble_simulation(output_folder, config, x, y, t, u, seeds
     np.save(os.path.join(output_path, "u.npy"), u)
 
 
-def load_output_l96_ensemble_simulation(output_folder, config, seeds=None, extra_ident=""):
+def load_output_l96_ensemble_simulation(output_folder, config, seeds, extra_ident=""):
     """
-    Save ensemble simulation results to the specified output folder.
+    Load ensemble simulation results from the specified output folder.
 
-    The results are saved in .npy format in the following directory structure:
+    The results are loaded from the following directory structure:
         `output_folder`/
             ensemble/
-                `parameterization`/
+                l96/
                     c{c}_dt{dt}_si{si}_time{t_total}_init{init_states}_ens{n_ens}_rs{seed}/
                         x.npy
+                        y.npy
                         t.npy
-                        init_indices.npy
+                        u.npy
+
     Args:
         output_folder (str): Path to the output folder.
         config (dict): Configuration dictionary containing simulation parameters. Must include:
@@ -360,11 +358,7 @@ def load_output_l96_ensemble_simulation(output_folder, config, seeds=None, extra
             - 't_total' (float): Total simulation time.
             - 'init_states' (int): Number of initial states.
             - 'n_ens' (int): Number of ensemble members.
-            - 'seed' (int): Random seed for reproducibility.
-        parameterization (str): Name of the parameterization used in the simulation.
-        x (numpy.ndarray): Array of ensemble state variables.
-        t (numpy.ndarray): Array of time points.
-        init_idx (numpy.ndarray): Array of initial state indices.
+        seeds (list): List of random seeds used for reproducibility.
         extra_ident (str, optional): Additional identifier for the folder. Default is an empty string.
 
     Returns:
@@ -373,12 +367,8 @@ def load_output_l96_ensemble_simulation(output_folder, config, seeds=None, extra
             - y (numpy.ndarray): Array of fast variables (Y).
             - t (numpy.ndarray): Array of time points.
             - u (numpy.ndarray): Coupling term history.
-
     """
-    if seeds is not None:
-        seed_str = f"{seeds[0]}-{seeds[-1]}"
-    else:
-        seed_str = config['seed']
+    seed_str = f"{seeds[0]}-{seeds[-1]}"
 
     f_ident = (
         f"c{config['c']}_"

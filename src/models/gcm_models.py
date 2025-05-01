@@ -9,6 +9,7 @@ Functions:
 - L96_eq1_x_dot: Computes the time rate of change for the X variables in the Lorenz '96 model.
 """
 
+import logging
 import numpy as np
 from numba import njit
 from scipy.integrate import odeint, solve_ivp
@@ -61,6 +62,7 @@ class GCM:
         """
         self.f = f
         self.parameterization = parameterization
+        self.logger = logging.getLogger(__name__)
 
     def rhs(self, t: float, x: np.ndarray) -> np.ndarray:
         """
@@ -75,7 +77,7 @@ class GCM:
         """
         return L96_eq1_x_dot(x, self.f) + self.parameterization(x)
 
-    def __call__(self, x_init: np.ndarray, si: float, t_total: float, method: str = 'solve_ivp') -> Tuple[np.ndarray, np.ndarray]:
+    def __call__(self, x_init: np.ndarray, si: float, t_total: float, solver: str = 'solve_ivp', solver_method: str = 'RK45') -> Tuple[np.ndarray, np.ndarray]:
         """
         Integrate the system forward in time.
 
@@ -86,16 +88,20 @@ class GCM:
             si (float): Sampling interval (time increment for each step).
             t_total (float): Total simulation time.
             method (str): Numerical solver to use ('solve_ivp' or 'odeint'). Defaults to 'solve_ivp'.
+            solver_method (str, optional): Method to use with the 'solve_ivp' solver. Default is 'RK45'.
 
         Returns:
             Tuple[np.ndarray, np.ndarray]: A tuple containing:
                 - hist (np.ndarray): History of the large-scale state over time. Shape: (nt + 1, K).
                 - time (np.ndarray): Array of time points corresponding to the simulation. Shape: (nt + 1,).
         """
-        implemented_methods = ['solve_ivp', 'ode_int']
-        if method not in implemented_methods:
+        implemented_methods = ['solve_ivp', 'odeint']
+        if solver not in implemented_methods:
             raise ValueError(
-                f"Unknown method: {method}. Method must be one of {implemented_methods}")
+                f"Unknown method: {solver}. Method must be one of {implemented_methods}")
+        if solver == 'odeint':
+            self.logger.info(
+                "`solver_method=%s` is only used with `solver=solve_ivp`.", solver_method)
 
         # Number of time steps
         nt = int(t_total / si)
@@ -107,16 +113,16 @@ class GCM:
         hist[0] = x_init
 
         # Solve the ODE using the specified RHS
-        if method == 'odeint':
+        if solver == 'odeint':
             ode_result = odeint(self.rhs, y0=x_init, t=t_eval, tfirst=True)
 
             hist[1:] = ode_result
             # Simulation time
             time = np.arange(0, t_total + si, step=si)
 
-        elif method == 'solve_ivp':
+        elif solver == 'solve_ivp':
             ode_result = solve_ivp(
-                self.rhs, (0, nt), y0=x_init, method='RK45', t_eval=t_eval)
+                self.rhs, (0, nt), y0=x_init, method=solver_method, t_eval=t_eval)
 
             hist[1:] = np.swapaxes(ode_result.y, 0, 1)
             # Simulation time
@@ -198,5 +204,3 @@ class GCMManual:
             hist[n + 1], time[n + 1] = x, dt * (n + 1)
 
         return hist, time
-
-

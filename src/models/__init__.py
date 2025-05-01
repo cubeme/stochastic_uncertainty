@@ -9,6 +9,7 @@ Exports:
 - L96: The Lorenz '96 model class.
 - L96_2t_x_dot_y_dot_solver: Time stepping for the two-time-scale Lorenz '96 model using numerical solvers.
 - L96_2t_x_dot_y_dot_manual: Manual time stepping for the two-time-scale Lorenz '96 model.
+- calculate_xy_tendencies: Computes the coupling tendencies from fast Y variables.
 - GCM: General Circulation Model using numerical solvers.
 - GCMManual: General Circulation Model using manual time-stepping methods.
 """
@@ -17,7 +18,8 @@ Exports:
 from .lorenz96_model import (
     L96,
     L96_2t_x_dot_y_dot_solver,
-    L96_2t_x_dot_y_dot_manual
+    L96_2t_x_dot_y_dot_manual,
+    calculate_xy_tendencies,
 )
 
 from .gcm_models import (
@@ -30,6 +32,7 @@ __all__ = [
     "L96",
     "L96_2t_x_dot_y_dot_solver",
     "L96_2t_x_dot_y_dot_manual",
+    "calculate_xy_tendencies",
     "GCM",
     "GCMManual"
 ]

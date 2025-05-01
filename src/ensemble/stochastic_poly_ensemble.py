@@ -14,7 +14,7 @@ import multiprocessing as mp
 import numpy as np
 
 
-def run_stochastic_member(args):
+def run_stochastic_member_solver(args):
     """
     Run a single ensemble member using a GCM with stochastic parameterization.
 
@@ -38,12 +38,13 @@ def run_stochastic_member(args):
             - x_pred (np.ndarray): Predicted state variables over time.
             - t (np.ndarray): Corresponding time points.
     """
-    i_init, i_member, init_state, f, si, t_total, coefs, phi, sigma_e, seed = args
+    i_init, i_member, init_state, f, si, t_total, coefs, phi, sigma_e, solver, solver_method, seed = args
 
     stoch_param = PolynomialAR1Parameterization(coefs, phi, sigma_e, seed=seed)
     gcm_model = GCM(f, stoch_param)
 
-    x_pred, t = gcm_model(init_state, si=si, t_total=t_total)
+    x_pred, t = gcm_model(init_state, si=si, t_total=t_total,
+                          solver=solver, solver_method=solver_method)
 
     return i_init, i_member, x_pred, t
 
@@ -83,8 +84,9 @@ def run_stochastic_member_manual(args):
     return i_init, i_member, x_pred, t
 
 
-def run_stochastic_ensemble_parallel_multiprocessing(n_init_states, n_ens, step_size_init_states,
-                                                     x_true, t_total, f, si, k, member_func, seeds, perturb, *args):
+def run_stochastic_ensemble_parallel_multiprocessing(n_init_states, n_ens, init_states, t_total,
+                                                     f, si, k, member_func,  coefs, phi, sigma_e,
+                                                     seeds, perturb=False, *args):
     """
     Run an ensemble forecast using the given GCM model in parallel with multiprocessing.
 
@@ -97,10 +99,17 @@ def run_stochastic_ensemble_parallel_multiprocessing(n_init_states, n_ens, step_
         f (float): Forcing term for the GCM.
         si (float): Sampling interval.
         k (int): Number of state variables.
-        member_func (callable): Function to run a single ensemble member.
+        member_func (callable): Function to run a single ensemble member. Options: 
+            - `run_stochastic_member_solver`: Runs a single ensemble member using a GCM using scipy solver time stepping.
+            - `run_stochastic_member_manual`: Runs a single ensemble member using a manually stepped GCM.
         seeds (list): List of random seeds for each simulation.
         perturb (bool): Whether to perturb the initial states.
-        *args: Additional arguments required by the `member_func`.
+        *args: Additional arguments required by the `member_func`. 
+            Options when using scipy solver (`member_func=run_stochastic_member_solver`)
+            - solver (str): Integration method for the GCM. Options are 'solve_ivp' or 'odeint'.
+            - solver_method (str): Method to use with the 'solve_ivp' solver. Default is 'RK45'.
+            Options when using manual solver (`member_func=run_stochastic_member_manual`)
+            - dt (float): Time step for numerical integration (used with manual integration).
 
     Returns:
         tuple: A tuple containing:
@@ -115,21 +124,14 @@ def run_stochastic_ensemble_parallel_multiprocessing(n_init_states, n_ens, step_
     nt = int(t_total / si)
     x_ens_forecast = np.zeros([n_init_states, n_ens, nt + 1, k])
     t_ens_forecast = np.zeros([n_init_states, n_ens, nt + 1])
-
-    init_state_indices = np.arange(
-        0, n_init_states * step_size_init_states, step_size_init_states, dtype=int)
-
-    init_states = [x_true[init_state_indices[i_init]]
-                   for i_init in range(n_init_states)]
-
+    
     if perturb:
         rg = np.random.default_rng(seed=seeds[-1]+1)
-        init_states = [
-            i_state + rg.normal(0, 1, size=i_state.shape[0]) for i_state in init_states]
+        init_states += rg.normal(0, 1, size=init_states.shape)
 
     # Prepare arguments for each process
-    tasks = [(i_init, i_member, i_state, f, si, t_total, *args)
-             for i_init, i_state in enumerate(init_states) for i_member in range(n_ens)]
+    tasks = [(i_init, i_member, init_states[i_init], f, si, t_total, coefs, phi, sigma_e, *args)
+             for i_init in range(n_init_states) for i_member in range(n_ens)]
     tasks = [(*task_tuple, s) for task_tuple, s in zip(tasks, seeds)]
 
     # Use multiprocessing Pool for parallel execution
@@ -141,4 +143,4 @@ def run_stochastic_ensemble_parallel_multiprocessing(n_init_states, n_ens, step_
         x_ens_forecast[i_init, i_member] = x_pred
         t_ens_forecast[i_init, i_member] = t
 
-    return x_ens_forecast, t_ens_forecast, init_state_indices
+    return x_ens_forecast, t_ens_forecast

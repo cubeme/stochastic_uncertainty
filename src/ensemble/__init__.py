@@ -16,20 +16,20 @@ Exports:
 # Import key functions and classes from submodules for easier access
 from .stochastic_poly_ensemble import (
     run_stochastic_ensemble_parallel_multiprocessing,
-    run_stochastic_member,
+    run_stochastic_member_solver,
     run_stochastic_member_manual
 )
 
 from .l96_parallel_ensemble import (
     run_l96_parallel, 
-    run_single_l96_simulation
+    run_single_l96_solver
 )
 
 # Define the public API of the module
 __all__ = [
     "run_stochastic_ensemble_parallel_multiprocessing",
-    "run_stochastic_member",
+    "run_stochastic_member_solver",
     "run_stochastic_member_manual",
     "run_l96_parallel", 
-    "run_single_l96_simulation"
+    "run_single_l96_solver"
 ]
