@@ -8,10 +8,11 @@ Functions:
 - run_stochastic_ensemble_parallel_multiprocessing: Runs an ensemble forecast in parallel using multiprocessing.
 """
 
-from models.gcm_models import GCM, GCMManual
-from parameterization.stochastic_poly_parameterization import PolynomialAR1Parameterization
 import multiprocessing as mp
 import numpy as np
+
+from models.gcm_models import GCM, GCMManual
+from parameterization.stochastic_poly_parameterization import PolynomialAR1Parameterization
 
 
 def run_stochastic_member_solver(args):

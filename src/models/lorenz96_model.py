@@ -10,6 +10,7 @@ Functions:
 Classes:
 - L96: A class for simulating the two-time-scale Lorenz '96 model.
 """
+
 import logging
 import numpy as np
 from numba import njit
