@@ -183,3 +183,8 @@ notebooks/output
 launch.json
 settings.json
 tasks.json
+
+# Cluster
+# Slurm output
+**/slurm*
+**/slurm*
