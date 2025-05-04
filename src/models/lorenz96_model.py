@@ -14,7 +14,6 @@ import logging
 import numpy as np
 from numba import njit
 from scipy.integrate import solve_ivp, odeint
-from torch import dtype
 
 
 @njit
@@ -325,6 +324,8 @@ class L96:
                     abs(ns * dt - si) < 1e-14
                 ), f"si is not an integer multiple of dt: si={si} dt={dt} ns={ns}"
 
+            xy_tend_hist = np.zeros((nt + 1, len(x_0)))
+            
             x = x_0.copy()
             y = y_0.copy()
             time = t_0 + np.zeros((nt + 1))
