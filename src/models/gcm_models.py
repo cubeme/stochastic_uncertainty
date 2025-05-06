@@ -13,7 +13,7 @@ import logging
 import numpy as np
 from numba import njit
 from scipy.integrate import odeint, solve_ivp
-from utils.time_stepping import RK4
+from utils.time_stepping import euler_forward
 from typing import Callable, Tuple
 
 
@@ -161,7 +161,8 @@ class GCMManual:
         """
         return L96_eq1_x_dot(x, self.f) + self.parameterization(x)
 
-    def __call__(self, x_init: np.ndarray, dt: float, si: float, t_total: float, time_stepping_func: Callable = RK4) -> Tuple[np.ndarray, np.ndarray]:
+    def __call__(self, x_init: np.ndarray, dt: float, si: float, t_total: float, 
+                 time_stepping_func: Callable = euler_forward) -> Tuple[np.ndarray, np.ndarray]:
         """
         IIntegrate the system forward in time.
 
@@ -170,7 +171,7 @@ class GCMManual:
             dt (float): Time step for numerical integration.
             si (float): Sampling interval (time increment for each step).
             t_total (float): Total simulation time.
-            time_stepping_func (Callable): Time-stepping function (e.g., RK4). Defaults to RK4.
+            time_stepping_func (Callable): Time-stepping function (e.g., RK4). Defaults to 'euler_forward'.
 
         Returns:
             Tuple[np.ndarray, np.ndarray]: A tuple containing:
