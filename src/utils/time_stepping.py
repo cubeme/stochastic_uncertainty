@@ -2,12 +2,6 @@
 """
 Provides numerical integration methods for solving ordinary differential 
 equations (ODEs) in time.
-
-Functions:
-- euler_forward: Perform a single Euler forward time-stepping step.
-- RK2: Perform a single second-order Runge-Kutta (RK2) time-stepping step.
-- RK4: Perform a single fourth-order Runge-Kutta (RK4) time-stepping step.
-- RK4_two_variables: Perform a single RK4 time-stepping step for two coupled variables.
 """
 
 

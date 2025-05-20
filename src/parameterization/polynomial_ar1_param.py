@@ -1,11 +1,11 @@
 """
-This module provides a polynomial parameterization with an autoregressive AR(1) noise process.
-
-Classes:
-- PolynomialAR1Parameterization: Combines a polynomial function and AR(1) noise to model stochastic processes.
+Provides a class for a polynomial parameterization with an autoregressive AR(1) noise process.
 """
 
+import pickle
+from pathlib import Path
 from typing import Tuple
+
 import numpy as np
 from numba import njit
 
@@ -34,6 +34,7 @@ class PolynomialAR1Parameterization:
         self.coefs = coefs
         self.phi = np.asarray(phi)
         self.sigma_e = np.asarray(sigma_e)
+        self.seed = seed
 
         # Validate phi values
         if np.any((self.phi < -1) | (self.phi > 1)):
@@ -90,3 +91,28 @@ class PolynomialAR1Parameterization:
             self.phi, self.sigma_e, self.noise_t_minus_1, self.rg)
         # Compute the deterministic polynomial parameterization and add AR(1) noise
         return self.eval_poly(x, self.coefs) + ar1_noise
+
+    def save(self, save_file):
+        if not str(save_file).endswith('.p'):
+            raise ValueError("Output file must be a pickle file (.p).")
+
+        d = {
+            "coefs": self.coefs,
+            "phi": self.phi,
+            "sigma_e": self.sigma_e,
+            "seed": self.seed,
+            "noise_t_minus_1": self.noise_t_minus_1,
+        }
+
+        Path(save_file).parent.mkdir(parents=True, exist_ok=True)
+        pickle.dump(d, save_file)
+
+
+def load_polynomial_ar1_parameterization(load_file):
+    d = pickle.load(load_file)
+
+    p = PolynomialAR1Parameterization(d['coefs'], d['phi'], d['sigma_e'],
+                                      d['seed'])
+    p.noise_t_minus_1 = d['noise_t_minus_1']
+
+    return p

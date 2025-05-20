@@ -1,17 +1,15 @@
 """
 Provides functionality for running multiple Lorenz '96 (L96) simulations
 in parallel using multiprocessing.
-
-Functions:
-- run_single_l96_simulation: Runs a single L96 simulation for a given initial state and configuration.
-- run_l96_parallel: Runs multiple L96 simulations in parallel using multiprocessing.
 """
 
 
-from multiprocessing import Pool
 import multiprocessing as mp
+from multiprocessing import Pool
+
 import numpy as np
-from models.lorenz96_model import L96
+
+from models.lorenz96 import L96
 
 
 def run_single_l96_solver(args):

@@ -1,18 +1,13 @@
 """
 Provides functionality for running ensemble forecasts
 using stochastic polynomial parameterizations in parallel with multiprocessing.
-
-Functions:
-- run_stochastic_member: Runs a single ensemble member using a GCM with stochastic parameterization.
-- run_stochastic_member_manual: Runs a single ensemble member using a manually stepped GCM with stochastic parameterization.
-- run_stochastic_ensemble_parallel_multiprocessing: Runs an ensemble forecast in parallel using multiprocessing.
 """
 
 import multiprocessing as mp
 import numpy as np
 
-from models.gcm_models import GCM, GCMManual
-from parameterization.stochastic_poly_parameterization import PolynomialAR1Parameterization
+from models.gcm import GCM, GCMManual
+from parameterization.polynomial_ar1_param import PolynomialAR1Parameterization
 
 
 def run_stochastic_member_solver(args):
@@ -85,8 +80,8 @@ def run_stochastic_member_manual(args):
     return i_init, i_member, x_pred, t
 
 
-def run_stochastic_ensemble_parallel_multiprocessing(n_init_states, n_ens, init_states, t_total,
-                                                     f, si, k, member_func,  coefs, phi, sigma_e,
+def run_stochastic_ensemble_parallel_multiprocessing(init_states, config,
+                                                     member_func,  coefs, phi, sigma_e,
                                                      seeds, perturb=False, *args):
     """
     Run an ensemble forecast using the given GCM model in parallel with multiprocessing.
@@ -122,17 +117,20 @@ def run_stochastic_ensemble_parallel_multiprocessing(n_init_states, n_ens, init_
     """
 
     # Initialize arrays to store ensemble forecasts for state variables and time
-    nt = int(t_total / si)
-    x_ens_forecast = np.zeros([n_init_states, n_ens, nt + 1, k])
-    t_ens_forecast = np.zeros([n_init_states, n_ens, nt + 1])
-    
+    nt = int(config['t_total'] / config['si'])
+    x_ens_forecast = np.zeros(
+        [config['n_init_states'], config['n_ens'], nt + 1, config['K']])
+    t_ens_forecast = np.zeros(
+        [config['n_init_states'], config['n_ens'], nt + 1])
+
     if perturb:
         rg = np.random.default_rng(seed=seeds[-1]+1)
         init_states += rg.normal(0, 1, size=init_states.shape)
 
     # Prepare arguments for each process
-    tasks = [(i_init, i_member, init_states[i_init], f, si, t_total, coefs, phi, sigma_e, *args)
-             for i_init in range(n_init_states) for i_member in range(n_ens)]
+    tasks = [(i_init, i_member, init_states[i_init], config['F'], config['si'], config['t_total'],
+              coefs, phi, sigma_e, *args)
+             for i_init in range(config['n_init_states']) for i_member in range(config['n_ens'])]
     tasks = [(*task_tuple, s) for task_tuple, s in zip(tasks, seeds)]
 
     # Use multiprocessing Pool for parallel execution

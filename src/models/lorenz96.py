@@ -1,133 +1,15 @@
 """
 Provides implementations of the Lorenz '96 model, including
 a two-time-scale version with slow (X) and fast (Y) variables.
-
-Functions:
-- L96_2t_x_dot_y_dot_solver: Computes the time derivatives for the two-time-scale Lorenz '96 model using a solver-friendly format.
-- L96_2t_x_dot_y_dot_manual: Computes the time derivatives for the two-time-scale Lorenz '96 model manually.
-- calculate_xy_tendencies: Computes the coupling tendencies from fast Y variables.
-
-Classes:
-- L96: A class for simulating the two-time-scale Lorenz '96 model.
 """
 
 import logging
+
 import numpy as np
-from numba import njit
-from scipy.integrate import solve_ivp, odeint
+from scipy.integrate import odeint, solve_ivp
 
-
-@njit
-def L96_2t_x_dot_y_dot_solver(t, xy_vars, K, J, F, h, b, c):
-    """
-    Compute the time derivatives for the two-time-scale Lorenz '96 model.
-
-    Equations:
-        d/dt X[k] = -X[k-1] (X[k-2] - X[k+1]) - X[k] + F - h.c/b sum_j Y[j,k]
-        d/dt Y[j] = -b c Y[j+1] (Y[j+2] - Y[j-1]) - c Y[j] + h.c/b X[k]
-
-    Args:
-        t (float): Current time (not used in the computation but required for solvers).
-        xy_vars (np.ndarray): Concatenated array of X and Y variables. Shape: (K + K*J,).
-        K (int): Number of slow variables (X).
-        J (int): Number of fast variables (Y) per slow variable.
-        F (float): Forcing term.
-        h (float): Coupling coefficient.
-        b (float): Ratio of amplitudes.
-        c (float): Time-scale ratio.
-
-    Returns:
-        np.ndarray: Concatenated array of time derivatives for X and Y variables. Shape: (K + K*J,).
-    """
-    x, y = xy_vars[:K], xy_vars[K:]
-
-    # Helper variables
-    hcb = (h * c) / b
-    y_summed = y.reshape((K, J)).sum(axis=-1)
-
-    # L96 slow equation
-    x_dot = -np.roll(x, 1) * (np.roll(x, 2) - np.roll(x, -1)) - \
-        x + F - hcb * y_summed
-
-    # L96 fast equation
-    y_dot = (
-        -c * b * np.roll(y, -1) * (np.roll(y, -2) - np.roll(y, 1))
-        - c * y + hcb * np.repeat(x, J)
-    )
-
-    return np.concatenate((x_dot, y_dot))
-
-
-@njit
-def L96_2t_x_dot_y_dot_manual(x, y, F, h, b, c):
-    """
-    Compute the time derivatives for the two-time-scale Lorenz '96 model manually.
-
-    Equations:
-        d/dt X[k] = -X[k-1] (X[k-2] - X[k+1]) - X[k] + F - h.c/b sum_j Y[j,k]
-        d/dt Y[j] = -b c Y[j+1] (Y[j+2] - Y[j-1]) - c Y[j] + h.c/b X[k]
-
-    Args:
-        x (np.ndarray): Slow variables (X). Shape: (K,).
-        y (np.ndarray): Fast variables (Y). Shape: (K*J,).
-        F (float): Forcing term.
-        h (float): Coupling coefficient.
-        b (float): Ratio of amplitudes.
-        c (float): Time-scale ratio.
-
-    Returns:
-        tuple: A tuple containing:
-            - x_dot (np.ndarray): Time derivatives of X variables. Shape: (K,).
-            - y_dot (np.ndarray): Time derivatives of Y variables. Shape: (K*J,).
-            - coupling (np.ndarray): Coupling term. Shape: (K,).
-    """
-
-    # Compute K and J from the data
-    JK, K = len(y), len(x)
-    J = JK // K
-    assert JK == J * K, "X and Y have incompatible shapes"
-
-    # Helper variables
-    hcb = (h * c) / b
-    y_summed = y.reshape((K, J)).sum(axis=-1)
-
-    # L96 slow equation
-    x_dot = -np.roll(x, 1) * (np.roll(x, 2) - np.roll(x, -1)) - \
-        x + F - hcb * y_summed
-
-    # L96 fast equation
-    y_dot = (
-        -c * b * np.roll(y, -1) * (np.roll(y, -2) - np.roll(y, 1))
-        - c * y + hcb * np.repeat(x, J)
-    )
-
-    return x_dot, y_dot, -hcb * y_summed
-
-
-def calculate_xy_tendencies(y_hist, h, c, b, k, j, nt):
-    """
-    Compute the coupling tendencies for the Lorenz '96 model from small-scale Y variables.
-
-    Args:
-        y_hist (np.ndarray): History of the fast variables (Y) over time. Shape: (nt+1, K*J).
-        h (float): Coupling coefficient.
-        c (float): Time-scale ratio.
-        b (float): Ratio of amplitudes.
-        k (int): Number of slow variables (X).
-        j (int): Number of fast variables (Y) per slow variable.
-        nt (int): Number of time steps.
-
-    Returns:
-        np.ndarray: Coupling tendencies for the slow variables (X) over time. Shape: (nt+1, K).
-    """
-    xy_tend_hist = np.zeros((nt + 1, k))
-
-    hcb = (h * c) / b
-    y_summed = y_hist.reshape(
-        (y_hist.shape[:-1] + (k, j))).sum(axis=-1)
-    xy_tend_hist[1:] = -hcb * y_summed[:-1]
-
-    return xy_tend_hist
+from models.helpers import (L96_2t_x_dot_y_dot_manual,
+                            L96_2t_x_dot_y_dot_solver, calculate_xy_tendencies)
 
 
 class L96:
@@ -137,8 +19,10 @@ class L96:
     coupled through a set of differential equations.
 
     Attributes:
-        x (numpy.ndarray): Current state or initial conditions for the slow variables (X).
-        y (numpy.ndarray): Current state or initial conditions for the fast variables (Y).
+        x (numpy.ndarray): Current state or initial conditions for the slow 
+            variables (X).
+        y (numpy.ndarray): Current state or initial conditions for the fast 
+            variables (Y).
         f (float): Forcing term for the slow variables.
         h (float): Coupling coefficient between the slow and fast variables.
         b (float): Ratio of amplitudes between the fast and slow variables.
@@ -223,7 +107,7 @@ class L96:
 
         return self
 
-    def randomize_IC(self):
+    def randomize_initial_conditions(self):
         """
         Randomize the initial conditions (or current state) for the system.
 
@@ -234,26 +118,36 @@ class L96:
             np.random.rand(self.x.size), np.random.rand(self.y.size)
         return self.set_state(X, Y)
 
-    def run(self, si, t_total, store=False, return_coupling=False, dt=0.001, solver='manual', solver_method='RK45'):
+    def run(self, si, t_total, store=False, return_coupling=False,
+            dt=0.001, solver='manual', solver_method='RK45'):
         """
         Run the Lorenz '96 model for a total time `t_total`, sampling at intervals of `si`.
 
         Args:
             si (float): Sampling interval (time increment for each step).
             t_total (float): Total simulation time.
-            store (bool, optional): If True, stores the final state as the initial conditions for the next run.
-            return_coupling (bool, optional): If True, returns the coupling term in addition to X, Y, and time.
-            dt (float, optional): Time step for numerical integration. Default is 0.001. Only used with manual integration.
-            solver (str, optional): Integration method. Options are 'solve_ivp', 'ode_int', or 'manual'.
+            store (bool, optional): If True, stores the final state as the      
+                initial conditions for the next run.
+            return_coupling (bool, optional): If True, returns the coupling 
+                term in addition to X, Y, and time.
+            dt (float, optional): Time step for numerical integration. Default 
+                is 0.001. Only used with manual integration.
+            solver (str, optional): Integration method. Options are 
+                'solve_ivp', 'ode_int', or 'manual'.
                                     Default is 'manual'.
-            solver_method (str, optional): Method to use with the 'solve_ivp' solver. Default is 'RK45'.
+            solver_method (str, optional): Method to use with the 'solve_ivp' 
+                solver. Default is 'RK45'.
 
         Returns:
             tuple:
-                - x_hist (numpy.ndarray): History of the slow variables (X) over time.
-                - y_hist (numpy.ndarray): History of the fast variables (Y) over time.
-                - time (numpy.ndarray): Array of time points corresponding to the simulation.
-                - xy_tend_hist (numpy.ndarray, optional): Coupling term history (if `return_coupling=True`).
+                - x_hist (numpy.ndarray): History of the slow variables (X) 
+                    over time.
+                - y_hist (numpy.ndarray): History of the fast variables (Y) 
+                    over time.
+                - time (numpy.ndarray): Array of time points corresponding to 
+                    the simulation.
+                - xy_tend_hist (numpy.ndarray, optional): Coupling term history 
+                    (if `return_coupling=True`).
         """
 
         implemented_methods = ['solve_ivp', 'odeint', 'manual']
@@ -270,9 +164,8 @@ class L96:
         # Number of time steps
         nt = int(t_total / si)
 
-        # todo: remove copy() this after debugging
-        x_0 = self.x.copy()
-        y_0 = self.y.copy()
+        x_0 = self.x
+        y_0 = self.y
         t_0 = self.t
 
         # Result arrays
@@ -291,7 +184,8 @@ class L96:
             # Using solve_ivp
             ode_result = solve_ivp(L96_2t_x_dot_y_dot_solver, t_span=(0, nt),
                                    y0=np.concatenate((x_0, y_0)), method=solver_method,
-                                   t_eval=t_eval, args=(self.k, self.j, self.f, self.h, self.b, self.c))
+                                   t_eval=t_eval,
+                                   args=(self.k, self.j, self.f, self.h, self.b, self.c))
 
             # Collect results
             x_hist[1:] = np.swapaxes(ode_result.y[:self.k], 0, 1)
@@ -326,13 +220,13 @@ class L96:
                 ), f"si is not an integer multiple of dt: si={si} dt={dt} ns={ns}"
 
             xy_tend_hist = np.zeros((nt + 1, len(x_0)))
-            
+
             x = x_0.copy()
             y = y_0.copy()
             time = t_0 + np.zeros((nt + 1))
 
             for n in range(nt):
-                for s in range(ns):
+                for _ in range(ns):
                     # RK4 update of X,Y
                     x_dot1, y_dot1, xy_tend = L96_2t_x_dot_y_dot_manual(
                         x, y, self.f, self.h, self.b, self.c)
@@ -361,7 +255,8 @@ class L96:
         return x_hist, y_hist, time
 
     def __repr__(self):
-        return f"L96: K={self.k} J={self.j} F={self.f} h={self.h} b={self.b} c={self.c}"
+        return f"L96: K={self.k} J={self.j} F={self.f}" + \
+            f"h={self.h} b={self.b} c={self.c}"
 
     def __str__(self):
         return (self.__repr__() + f"\n X={self.x} \nY={self.y} \nt={self.t}")

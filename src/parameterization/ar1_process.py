@@ -1,12 +1,9 @@
 """
 Provides functions to fit and generate first-order autoregressive (AR(1)) noise.
-
-Functions:
-- fit_ar1_noise_parameters: Fits AR(1) parameters (phi and sigma_e) from residuals.
-- compute_ar1_noise: Generates AR(1) noise for a specified number of time steps.
 """
 
 from typing import Tuple
+
 import numpy as np
 from scipy.optimize import curve_fit
 

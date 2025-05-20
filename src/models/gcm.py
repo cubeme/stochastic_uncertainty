@@ -1,49 +1,15 @@
 """
 Provides implementations of General Circulation Models (GCMs) based on the Lorenz '96 model.
-
-Classes:
-- GCM: A GCM using numerical solvers `solve_ivp` or `odeint`.
-- GCMManual: A GCM using manual time-stepping methods like RK4.
-
-Functions:
-- L96_eq1_x_dot: Computes the time rate of change for the X variables in the Lorenz '96 model.
 """
 
 import logging
-import numpy as np
-from numba import njit
-from scipy.integrate import odeint, solve_ivp
-from utils.time_stepping import euler_forward
 from typing import Callable, Tuple
 
+import numpy as np
+from scipy.integrate import odeint, solve_ivp
 
-@njit
-def L96_eq1_x_dot(x: np.ndarray, f: float, advect: bool = True) -> np.ndarray:
-    """
-    Calculate the time rate of change for the X variables in the Lorenz '96 model.
-
-    Equation:
-        d/dt X[k] = -X[k-2] X[k-1] + X[k-1] X[k+1] - X[k] + F
-
-    Args:
-        x (np.ndarray): Values of X variables at the current time step. Shape: (K,).
-        f (float): Forcing term F.
-        advect (bool): Whether to include the advection term in the computation. Defaults to True.
-
-    Returns:
-        np.ndarray: Array of tendencies for the X variables. Shape: (K,).
-    """
-    k = len(x)
-    x_dot = np.zeros(k)
-
-    if advect:
-        # Compute the advection term and add forcing
-        x_dot = np.roll(x, 1) * (np.roll(x, -1) - np.roll(x, 2)) - x + f
-    else:
-        # Only include the linear damping and forcing terms
-        x_dot = -x + f
-
-    return x_dot
+from models.helpers import L96_eq1_x_dot
+from utils.time_stepping import euler_forward
 
 
 class GCM:
@@ -51,14 +17,15 @@ class GCM:
     General Circulation Model (GCM) of the Lorenz '96 model using numerical solvers.
     """
 
-    def __init__(self, f: float, parameterization: Callable[[np.ndarray], np.ndarray] = lambda x: 0):
+    def __init__(self, f: float,
+                 parameterization: Callable[[np.ndarray], np.ndarray] = lambda x: 0):
         """
         Initialize GCM instance.
 
         Args:
             f (float): Forcing term for the Lorenz '96 model.
-            parameterization (Callable): Parameterization function to modify the RHS of the tendency equation.
-                                         Defaults to a zero function.
+            parameterization (Callable): Parameterization function to modify 
+                the RHS of the tendency equation. Defaults to a zero function.
         """
         self.f = f
         self.parameterization = parameterization
@@ -69,31 +36,39 @@ class GCM:
         Compute the right-hand side (RHS) of the tendency equation with parameterization.
 
         Args:
-            t (float): Current time (not used in the computation but required for ODE solvers).
+            t (float): Current time (not used in the computation but required 
+                for ODE solvers).
             x (np.ndarray): Current state of the large-scale variables.
 
         Returns:
-            np.ndarray: The computed RHS of the parameterized tendency equation.
+            np.ndarray: The computed RHS of the parameterized tendency 
+                equation.
         """
         return L96_eq1_x_dot(x, self.f) + self.parameterization(x)
 
-    def __call__(self, x_init: np.ndarray, si: float, t_total: float, solver: str = 'solve_ivp', solver_method: str = 'RK45') -> Tuple[np.ndarray, np.ndarray]:
+    def __call__(self, x_init: np.ndarray, si: float, t_total: float,
+                 solver: str = 'solve_ivp', solver_method: str = 'RK45') -> Tuple[np.ndarray, np.ndarray]:
         """
         Integrate the system forward in time.
 
         Integrate the system forward in time.
 
         Args:
-            x_init (np.ndarray): Initial conditions for the large-scale state variables. Shape: (K,).
+            x_init (np.ndarray): Initial conditions for the large-scale state 
+                variables. Shape: (K,).
             si (float): Sampling interval (time increment for each step).
             t_total (float): Total simulation time.
-            method (str): Numerical solver to use ('solve_ivp' or 'odeint'). Defaults to 'solve_ivp'.
-            solver_method (str, optional): Method to use with the 'solve_ivp' solver. Default is 'RK45'.
+            method (str): Numerical solver to use ('solve_ivp' or 'odeint'). 
+                Defaults to 'solve_ivp'.
+            solver_method (str, optional): Method to use with the 'solve_ivp' 
+                solver. Default is 'RK45'.
 
         Returns:
             Tuple[np.ndarray, np.ndarray]: A tuple containing:
-                - hist (np.ndarray): History of the large-scale state over time. Shape: (nt + 1, K).
-                - time (np.ndarray): Array of time points corresponding to the simulation. Shape: (nt + 1,).
+                - hist (np.ndarray): History of the large-scale state over 
+                    time. Shape: (nt + 1, K).
+                - time (np.ndarray): Array of time points corresponding to the 
+                    simulation. Shape: (nt + 1,).
         """
         implemented_methods = ['solve_ivp', 'odeint']
         if solver not in implemented_methods:
@@ -137,14 +112,15 @@ class GCMManual:
     General Circulation Model (GCM) of the Lorenz '96 model using manual time-stepping methods.
     """
 
-    def __init__(self, f: float, parameterization: Callable[[np.ndarray], np.ndarray] = lambda x: 0):
+    def __init__(self, f: float,
+                 parameterization: Callable[[np.ndarray], np.ndarray] = lambda x: 0):
         """
         Initialize GCM instance.
 
         Args:
             f (float): Forcing term for the Lorenz '96 model.
-            parameterization (Callable): Parameterization function to modify the RHS of the tendency equation.
-                                         Defaults to a zero function.
+            parameterization (Callable): Parameterization function to modify 
+                the RHS of the tendency equation. Defaults to a zero function.
         """
         self.f = f
         self.parameterization = parameterization
@@ -157,26 +133,31 @@ class GCMManual:
             x (np.ndarray): Current state of the large-scale variables.
 
         Returns:
-            np.ndarray: The computed RHS of the parameterized tendency equation.
+            np.ndarray: The computed RHS of the parameterized tendency 
+                equation.
         """
         return L96_eq1_x_dot(x, self.f) + self.parameterization(x)
 
-    def __call__(self, x_init: np.ndarray, dt: float, si: float, t_total: float, 
-                 time_stepping_func: Callable = euler_forward) -> Tuple[np.ndarray, np.ndarray]:
+    def __call__(self, x_init: np.ndarray, dt: float, si: float, t_total:
+                 float, time_stepping_func: Callable = euler_forward) -> Tuple[np.ndarray, np.ndarray]:
         """
-        IIntegrate the system forward in time.
+        Integrates the system forward in time.
 
         Args:
-            x_init (np.ndarray): Initial conditions for the large-scale state variables. Shape: (K,).
+            x_init (np.ndarray): Initial conditions for the large-scale state 
+                variables. Shape: (K,).
             dt (float): Time step for numerical integration.
             si (float): Sampling interval (time increment for each step).
             t_total (float): Total simulation time.
-            time_stepping_func (Callable): Time-stepping function (e.g., RK4). Defaults to 'euler_forward'.
+            time_stepping_func (Callable): Time-stepping function (e.g., RK4). 
+                Defaults to 'euler_forward'.
 
         Returns:
             Tuple[np.ndarray, np.ndarray]: A tuple containing:
-                - hist (np.ndarray): History of the large-scale state over time. Shape: (nt + 1, K).
-                - time (np.ndarray): Array of time points corresponding to the simulation. Shape: (nt + 1,).
+                - hist (np.ndarray): History of the large-scale state over 
+                    time. Shape: (nt + 1, K).
+                - time (np.ndarray): Array of time points corresponding to the 
+                    simulation. Shape: (nt + 1,).
         """
         # Number of time steps
         nt = int(t_total / si)
@@ -192,16 +173,16 @@ class GCMManual:
 
         # Initialize history array for storing the state variables
         hist = np.zeros((nt + 1, len(x_init))) * np.nan
-        time = si * np.arange(nt + 1)
+        time = np.zeros((nt + 1))
 
         hist[0] = x_init
 
         x = x_init
 
         for n in range(nt):
-            for s in range(ns):
+            for _ in range(ns):
                 x = time_stepping_func(self.rhs, dt, x)
 
-            hist[n + 1], time[n + 1] = x, dt * (n + 1)
+            hist[n + 1], time[n + 1] = x, si * (n + 1)
 
         return hist, time
